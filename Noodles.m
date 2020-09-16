@@ -1,8 +1,11 @@
 %{
+My attempt to recreate [Noodles!](https://apps.apple.com/us/app/noodles/id967624193) a very fun iPhone game made by [Michael Busheikin](https://twitter.com/lummoxlabs).
+
+%}
+%{
 on large grids it can be hard to spot where the web is broken
 wincheck() is fairly slow on large grids
 -can be sped up by "breaking" tile 1,1
-- don't check when locking a tile
 
 could use an actual indicator that you've won
 %}
