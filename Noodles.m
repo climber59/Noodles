@@ -2,11 +2,11 @@
 on large grids it can be hard to spot where the web is broken
 wincheck() is fairly slow on large grids
 -can be sped up by "breaking" tile 1,1
+- don't check when locking a tile
 
 could use an actual indicator that you've won
 %}
 function [] = Noodles( )
-% 	clc
 	f = [];
 	ax = [];
 	grid = [];%matlab.graphics.primitive.Patch.empty;
@@ -23,7 +23,9 @@ function [] = Noodles( )
 	newGame();	
 	
 	
-	
+	% this functions defines the coordinates used to draw all the tiles.
+	% The hex tiles were originally drawn in Geometer's Sketchpad and then
+	% transfered over
 	function [] = coordFill()
 		% adds coordinates needed to draw all the tiles.
 		t = 1/3;
@@ -44,6 +46,8 @@ function [] = Noodles( )
 		n = k/3; %ny
 		m = k*2/3; %my
 		
+		% the number indicates how many connections it has. the letter
+		% indicates which variation
 		coords.hex = 0. + m*[ -0.5 -1 -0.5 0.5 1 0.5; k 0 -k -k 0 k];
 		coords.h1 = 0. + m*[ -L -L 0 L L; k -c -j -c k];
 		
@@ -66,20 +70,18 @@ function [] = Noodles( )
 		
 	end
 	
+	% checks to see if the noodle has been fully connected
 	function [win] = wincheck()
-		board = ones(size(grid));
-		recCheck(1,1);
-		if nnz(board)~=0
-			win = false;
-		else
-			win = true;
-		end
-			
+		board = ones(size(grid)); % board keeps track of which tiles have not been checked yet
+		win = recCheck(1,1);
+		
+		% recursive check. gets called for each connection of the tile
+		% being checked. 
 		function [w] = recCheck(r,c)
 			board(r,c) = 0;
 			w = true;
 			d = grid(r,c).UserData.Dirs;
-			for t = d
+			for t = d % check in the direction of each connection
 				dc = round(cosd(t));
 				dr = round(sind(t));
 				if hex
@@ -89,8 +91,8 @@ function [] = Noodles( )
 						dr = mod(c,2) - 1;
 					end
 				end
-				if r+dr<=size(board,1) && r+dr>=1 && c+dc<=size(board,2) && c+dc>=1 && any(grid(r+dr,c+dc).UserData.Dirs==mod(t+180,360))
-					if board(r+dr,c+dc)
+				if r+dr<=size(board,1) && r+dr>=1 && c+dc<=size(board,2) && c+dc>=1 && any(grid(r+dr,c+dc).UserData.Dirs==mod(t+180,360))% checks if the adjacent tile is connected
+					if board(r+dr,c+dc) % checks that the noodle hasn't created a loop. would cause the recursion to be in a loop too
 						w = recCheck(r+dr,c+dc);
 						if ~w
 							return
@@ -104,9 +106,10 @@ function [] = Noodles( )
 		end
 	end
 	
+	% creates the figure and other intitial graphics objects
 	function [] = figureSetup()
 		f = figure(1);
-		clf
+		clf('reset');
 		f.MenuBar = 'none';
 		
 		
@@ -129,7 +132,7 @@ function [] = Noodles( )
 			'Position',[0.78 0.9275 0.2 0.07],...
 			'Callback',@newGame);
 		
-		rLbl = uicontrol(...
+		rowLbl = uicontrol(...
 			'Parent',f,...
 			'Style','text',...
 			'Units','normalized',...
@@ -147,7 +150,7 @@ function [] = Noodles( )
 			'FontSize',0.625,...
 			'Position',[0.125 0.9275 0.05 0.07]);
 		
-		cLbl = uicontrol(...
+		colLbl = uicontrol(...
 			'Parent',f,...
 			'Style','text',...
 			'Units','normalized',...
@@ -177,9 +180,10 @@ function [] = Noodles( )
 
 	end
 	
+	% starts a new game
 	function [] =  newGame(~,~)
+		% generates a random color with a constraint on the brightness
 		color = rand(1,3);
-	
 		while norm(color)<1
 			color = rand(1,3);
 		end
@@ -200,6 +204,7 @@ function [] = Noodles( )
 		end
 	end
 	
+	% handles mouse clicks. triggered on the release of the click
 	function [] = click(~,~)
 		if gameOver
 			return
@@ -211,16 +216,17 @@ function [] = Noodles( )
 		else
 			m = round(ax.CurrentPoint([1,3]));
 		end
-		if any(m<1) || m(1)>size(grid,2) || m(2)>size(grid,1)
+		if any(m<1) || m(1)>size(grid,2) || m(2)>size(grid,1) % check that it's actually clicking on a tile
 			return
 		end
 		
 		switch f.SelectionType
-			case {'normal', 'open'}
+			case {'normal', 'open'} % rotate on left click or double click
 				if ~grid(m(2),m(1)).UserData.lock
 					rotate(grid(m(2),m(1)));
 				end
-			case 'alt'
+				gameOver = wincheck();
+			case 'alt' % (un)lock on right click
 				grid(m(2),m(1)).UserData.lock = ~grid(m(2),m(1)).UserData.lock;
 				if grid(m(2),m(1)).UserData.lock
 					grid(m(2),m(1)).EdgeColor = 1-0.375*color;
@@ -230,12 +236,11 @@ function [] = Noodles( )
 					grid(m(2),m(1)).LineWidth = 0.5;
 				end
 		end
-		
-		gameOver = wincheck();
 	end
 	
+	% generates the grid for the hexagon variant
 	function [] = hexGen(nr,nc)
-		grid = matlab.graphics.primitive.Patch.empty;
+		grid = gobjects(nr,nc);
 		% Dirs - 0 is pos x (right on screen), 90 is pos y (down on screen)
 		lines = zeros(nr*2-1,nc*2-1);
 		badlines = lines;
@@ -247,19 +252,21 @@ function [] = Noodles( )
 			end
 		end
 		
-		l = find(lines & ~badlines); % remoe lines randomly
+		l = find(lines & ~badlines); % remove lines randomly
 		while ~isempty(l)
 			i = randi(length(l));
 			lines(l(i)) = 0;
 			if ~stillAChain(lines, nr*nc, hex)
 				lines(l(i)) = 1;
-				badlines(l(i)) = 1;
+				badlines(l(i)) = 1; % stores lines that break the chain. can't remove them
 			end
 			l = find(lines & ~badlines);
 		end
 		
-		for r = 1:nr % fill in the pieces
+		% fill in the pieces
+		for r = 1:nr
 			for c = 1:nc
+				% figure out which directions each tile has in the solution
 				Dirs = [];
 				if c~=nc && lines(r*2-1,c*2)==1 % line to the right
 					if mod(c,2)==0
@@ -294,11 +301,9 @@ function [] = Noodles( )
 					Dirs = [Dirs, 330];
 				end
 				
-				
+				% use those directions to determine what tile to draw. also
+				% gets the dirs needed to match the tile when first drawn
 				Dirs = sort(Dirs);
-				
-				p = [0 0 1 1; 0 1 1 0];
-				d2 = 30;
 				switch length(Dirs)
 					case 1
 						p = coords.h1;
@@ -353,7 +358,7 @@ function [] = Noodles( )
 						p = coords.h6;
 						d2 = 30+60*(0:5);
 				end
-				r2 = r + 0.5*mod(c,2);
+				r2 = r + 0.5*mod(c,2); % accounts for the staggering
 				c2 = c*sind(60);
 
 				grid(r,c) = patch(c2+p(1,:), r2+p(2,:),color);
@@ -362,7 +367,7 @@ function [] = Noodles( )
 				grid(r,c).UserData.lock = false;
 				grid(r,c).UserData.Dirs = d2;
 				for i=1:randi(6)-1
-					rotate(grid(r,c));
+					rotate(grid(r,c)); % spin the tile a few times, so they don't all start pointing the same direction
 				end
 			end
 		end
@@ -372,8 +377,9 @@ function [] = Noodles( )
 		axis([x, y])
 	end
 	
+	% generates the grid for the quad variant
 	function [] = gridGen(nr,nc)
-		grid = matlab.graphics.primitive.Patch.empty;
+		grid = gobjects(nr,nc);
 		% Dirs - 0 is pos x (right on screen), 90 is pos y (down on screen)
 		lines = zeros(nr*2-1,nc*2-1);
 		badlines = lines;
@@ -389,7 +395,7 @@ function [] = Noodles( )
 		while ~isempty(l)
 			i = randi(length(l));
 			lines(l(i)) = 0;
-			if ~stillAChain(lines, nr*nc, hex)
+			if ~stillAChain(lines, nr*nc, hex) % check that it didn't break the noodle
 				lines(l(i)) = 1;
 				badlines(l(i)) = 1;
 			end
@@ -442,6 +448,7 @@ function [] = Noodles( )
 		end
 	end
 	
+	% rotates tiles. graphics and stored data is updated
 	function [] = rotate(obj)
 		t = 90 - hex*30;
 		
@@ -457,22 +464,23 @@ function [] = Noodles( )
 		obj.UserData.Dirs = sort(mod(obj.UserData.Dirs+t,360));
 	end
 
+	% draws the background hexagons
 	function [] = hexPreview(r,c)
 		for qwe = 1:c
 			for asd = 1:r
-				zxc = (0.5)*mod(qwe,2);
 				patch(qwe*sind(60) + coords.hex(1,:), 0.5*mod(qwe,2) + asd + coords.hex(2,:),0.375*color)
 			end
 		end
 	end
 end
 
+% checks if the noodle being generated is still a single noodle.
 function [itIs] = stillAChain(linegrid, total, hex)
 	board = zeros(size(linegrid));
 	recChain(1,1)
 	itIs = (total == sum(sum(board)));
 	
-	
+	% the recursion part
 	function [] = recChain(r,c)
 		board(r,c) = 1;
 		
