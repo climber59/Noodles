@@ -120,6 +120,8 @@ function [] = Noodles( )
 		f = figure(1);
 		clf('reset');
 		f.MenuBar = 'none';
+		f.Name = 'Noodles';
+		f.NumberTitle = 'off';
 		
 		
 		ax = axes('Parent',f);
