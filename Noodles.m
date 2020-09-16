@@ -31,6 +31,7 @@ function [] = Noodles( )
 		t = 1/3;
 		t2 = 2/3;
 		x = t+0.045;
+		coords.Quad = -0.5 + [0 0 1 1; 0 1 1 0];
 		coords.End = -0.5+[t t 1.5*t-0.5*x 1.5*t-0.5*x 1.5*t+0.5*x 1.5*t+0.5*x t2 t2; 1 1-x 1-x 1-2*x 1-2*x 1-x 1-x 1];
 		coords.Line = -0.5+[t t t2 t2; 1 0 0 1];
 		coords.Corner = -0.5+[t t 1 1 t2 t2; 0 t2 t2 t t 0];
@@ -73,7 +74,12 @@ function [] = Noodles( )
 	% checks to see if the noodle has been fully connected
 	function [win] = wincheck()
 		board = ones(size(grid)); % board keeps track of which tiles have not been checked yet
-		win = recCheck(1,1);
+		recCheck(1,1);
+		if nnz(board)~=0 % checks if the noodle actually uses every tile
+			win = false;
+		else
+			win = true;
+		end
 		
 		% recursive check. gets called for each connection of the tile
 		% being checked. 
@@ -118,6 +124,8 @@ function [] = Noodles( )
 		ax.XTick = [];
 		ax.YTick = [];
 		ax.YDir = 'reverse';
+		ax.XColor = [1 1 1];
+		ax.YColor = [1 1 1];
 		axis equal
 		
 		f.WindowButtonUpFcn = @click;
@@ -197,9 +205,14 @@ function [] = Noodles( )
 		gameOver = false;
 		
 		if hex
+			x = [sind(60)-0.51/sind(60) sind(60)*c+1*0.5/sind(60)];
+			y = [0.5 r+1];
+			axis([x, y])
 			hexPreview(r,c)
 			hexGen(r,c);
 		else
+			axis(0.5*[1 -1 1 -1]+[0 c+1, 0 r+1])
+			quadPreview(r,c)
 			gridGen(r,c);
 		end
 	end
@@ -371,10 +384,6 @@ function [] = Noodles( )
 				end
 			end
 		end
-		
-		x = [sind(60)-0.51/sind(60) sind(60)*nc+1*0.5/sind(60)];
-		y = [0.5 nr+1];
-		axis([x, y])
 	end
 	
 	% generates the grid for the quad variant
@@ -444,7 +453,6 @@ function [] = Noodles( )
 					rotate(grid(r,c));
 				end
 			end
-			axis(0.5*[1 -1 1 -1]+[0 nc+1, 0 nr+1])
 		end
 	end
 	
@@ -466,9 +474,19 @@ function [] = Noodles( )
 
 	% draws the background hexagons
 	function [] = hexPreview(r,c)
+		patch(ax.XLim(2)*[0 0 1 1], [ax.YLim fliplr(ax.YLim)],0.1875*color)
 		for qwe = 1:c
 			for asd = 1:r
 				patch(qwe*sind(60) + coords.hex(1,:), 0.5*mod(qwe,2) + asd + coords.hex(2,:),0.375*color)
+			end
+		end
+	end
+	
+	% draws the background squares
+	function [] = quadPreview(r,c)
+		for qwe = 1:c
+			for asd = 1:r
+				patch(qwe + coords.Quad(1,:), asd + coords.Quad(2,:),0.375*color)
 			end
 		end
 	end
